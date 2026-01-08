@@ -45,6 +45,11 @@ id_rsa dans .ssh qui permet de se connecter en ssh
 level05@nebula:/tmp$ ssh -i /tmp/.ssh/id_rsa flag05@localhost
 
 et donc avoir le bon id pour effectuer getflag
+flag05@nebula:/home$ id
+uid=994(flag05) gid=994(flag05) groups=994(flag05)
+flag05@nebula:/home$ getflag
+You have successfully executed getflag on a target account
+
 
 
 
