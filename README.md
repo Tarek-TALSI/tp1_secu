@@ -1,9 +1,17 @@
 # tp1_secu
 
 **Level00**
+Nous devons donc traquer un programme en Set User ID. Pour cela, nous utilisons la commande find suivante :
+level00@nebula:/bin/...$ find / -user flag00 2>/dev/null 
 
-level00@nebula:/bin/...$ find / -user flag00 2>/dev/null trouve flag00 partout
-Le programme change le UID effectif et permet d'éxecuter un programme pour lequel on devrait pas avoir la permission (getflag)
+Parmi les occurrences trouvées, nous avons ceci :
+/bin/.../flag00
+
+Le chemin contenant ... est suspect et est utilisé ici pour cacher l’exécutable flag00.
+
+Le programme change le UID effectif et permet d'exécuter un programme pour lequel on devrait pas avoir la permission (getflag)
+
+La faiblesse est la présence d'un programme SUID non protégé.
 
 CWE250:
 The product performs an operation at a privilege level that is higher than the minimum level required, which creates new weaknesses or amplifies the consequences of other weaknesses.
@@ -11,15 +19,45 @@ The product performs an operation at a privilege level that is higher than the m
 
 **Level01**
 
-level01@nebula:/tmp$ ln -s /bin/getflag /tmp/echo on pointe echo vers le programme sensible en gardant le UID et GID. Quand echo sera appelé ça sera pas dans /usr/bin/env mais dans /bin/getflag
+Le programme appartient à l’utilisateur flag01 et est exécuté avec son UID effectif.
+En analysant le code source, on remarque l’appel suivant :
+system("/usr/bin/env echo and now what?");
+
+Le programme utilise donc /usr/bin/env pour appeler echo, ce qui signifie que la résolution de la commande dépend de la variable d’environnement PATH (merci le hint).
+
+Nous exploitons alors le fait que echo n’est pas appelé avec un chemin absolu, ce qui permet d’en fournir un autre via le PATH.
+Nous créeons alors un symlink se nommant echo qui va pointé vers getflag:
+level01@nebula:/tmp$ ln -s /bin/getflag /tmp/echo 
+
+Ce lien permet de faire croire au programme qu’il exécute echo, alors qu’il exécute en réalité getflag, tout en conservant l’UID et le GID de flag01.
+
+La dernière étape est de modifier la variable PATH afin que /tmp soit recherché en priorité  
 
 level01@nebula:/tmp$ export PATH=/tmp:$PATH on rajoute tmp dans le path pour que echo ait accès à notre redirection.
 
+La faiblesse est la fonction system() qui n'est pas indépendante du path et qui donc nous permet de lui faire exectuer ce qu'on veut
+
+CWE-426:
+The product searches for critical resources using an externally-supplied search path that can point to resources that are not under the product's direct control.
+
 **Level02**
 
+En analysant le code source, on remarque que la variable d’environnement USER est récupérée et directement intégrée dans une commande passée à system()
+
+asprintf(&buffer, "/bin/echo %s is cool", getenv("USER"));
+system(buffer);
+
+Nous pouvons alors faire ce que nous voulons avec la variable d'environnement USER. Nous injectons donc une commande "complétement aléatoire" avec ceci:
 export USER='$(/bin/getflag)'
+Ce qui récupère notre flag car le programme appartient à flag02.
+
+La faiblesse ici est encore due à l'injection de paramètre dans  la fonction system() mais cette fois via une variable d'environnement.
+
+CWE-77:
+The product constructs all or part of a command using externally-influenced input from an upstream component, but it does not neutralize or incorrectly neutralizes special elements that could modify the intended command when it is sent to a downstream component.
 
 **Level03**
+
 drwxrwxrwx 2 flag03 flag03  3 2012-08-18 05:24 writable.d
 Le cron appartient à flag03 donc tout ce qui est executé par lui à les droits de flag03.
 
