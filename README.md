@@ -122,3 +122,4 @@ python3 -c 'print("%33x")' |./format-zero
 **format-one**
 
 python3 -c 'print("%31x"+","+"lOvE")' |./format-one
+pas plus que 15 caractères donc pas de \x... etc on repart sur codage asci
