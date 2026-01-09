@@ -89,6 +89,12 @@ flag05@nebula:/home$ getflag
 You have successfully executed getflag on a target account
 
 
+# tp2_secu
+
+**stack-zero**
+solution:rouler sa tête sur le clavier
+fix: if(sizeof(buffer)>64)local.changeme=0;
+
 
 
 
