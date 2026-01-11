@@ -92,37 +92,103 @@ You have successfully executed getflag on a target account
 # tp2_secu
 
 **stack-zero**
-print("A"*65)|.stack-zero
+Le programme lit une entrée utilisateur à l’aide de la fonction gets() dans un buffer de taille fixe situé sur la pile .
+La fonction gets() ne vérifie pas la taille de l’entrée fournie. Il est donc possible d’écrire au-delà des 64 octets du buffer et d’écraser la variable changeme placée juste après sur la pile.
 
-solution:rouler sa tête sur le clavier
-fix: if(sizeof(buffer)>64)local.changeme=0;
+La solution consiste à fournir une entrée supérieure à 64 caractères afin de modifier la valeur de changeme : python3 -c 'print("A"*65)' | ./stack-zero
+
+
+La faiblesse provient de l’utilisation de gets(), qui permet un dépassement de tampon sur la pile et la modification de variables adjacentes en mémoire.
+
+Pour corriger ce problème, il faut remplacer gets() par une fonction limitant la taille de l’entrée, comme fgets().
+
+CWE-121 :  A stack-based buffer overflow condition is a condition where the buffer being overwritten is allocated on the stack (i.e., is a local variable or, rarely, a parameter to a function).
+
 
 **stack-one**
 
-./stack-one "$(python3 -c 'print("A"*64 + "bYlI")')"
+Le programme copie un argument fourni par l’utilisateur dans un buffer de taille fixe situé sur la pile.
+Or la fonction strcpy() est utilisé sans vérificaiton de taille donc on peut écrire plus que 64 octets dans le buffer et écraser la variable changeme stockée juste après en mémoire.
 
-print("A"*64 + 'IlYb')
+L’objectif est de modifier changeme avec la valeur 0x496c5962.
+En tenant compte du little endian, cette valeur doit être écrite octet par octet à l’envers.
+
+La solution est donc la suivante:
+./stack-one "$(python3 -c 'print("A"*64 + "bYlI")')" (en code ascii)
+
+La faiblesse provient de l’utilisation de strcpy(), qui permet un dépassement de tampon sur la pile et la modification de variables adjacentes avec des valeurs contrôlées.
+
+Pour corriger ce problème, il faut remplacer strcpy() par une fonction limitant la taille de la copie comme strncpy().
+
+CWE-121 :  A stack-based buffer overflow condition is a condition where the buffer being overwritten is allocated on the stack (i.e., is a local variable or, rarely, a parameter to a function).
+
 
 **stack-two**
 
-Cette fois on overflow dans la stack avec strcpy et une variable d'environnement :
+Le programme copie le contenu d’une variable d’environnement dans un buffer de taille fixe situé sur la pile.
+La fonction strcpy() est utilisée sans aucune vérification de taille sur le contenu de la variable d’environnement ExploitEducation.
+
+La solution consiste à définir la variable d’environnement ExploitEducation avec une valeur suffisamment longue, suivie de la valeur cible étant 0x0d0a090a:
 export ExploitEducation=$(python3 -c 'print("A"*64+"\x0a\x09\x0a\x0d")')
 
+La faiblesse provient de l’utilisation de strcpy() combinée à une entrée utilisateur non contrôlée issue d’une variable d’environnement.
+
+Pour corriger ce problème, il faut limiter la taille des données copiées dans le buffer en utilisant une fonction sécurisée comme strncpy().
+
+CWE-121 :  A stack-based buffer overflow condition is a condition where the buffer being overwritten is allocated on the stack (i.e., is a local variable or, rarely, a parameter to a function).
+
+
 **stack-tree**
-expliquer histoire du c2 qui se rajoute à cause du problème d'utf-8 car traduction d'un nombre qui n'existe pas dans la table ascii. 9d>7f
 
-il faut désactiver l'encodage utf8 en octet pur donc plus de printf mais stdout
+Le programme lit une entrée utilisateur à l’aide de la fonction gets() dans un buffer de taille fixe situé sur la pile.
+On peut alors écraser le pointeur de fonction fp.
+L’objectif est de faire pointer fp vers la fonction complete_level().
+L’adresse de cette fonction peut être récupérée à l’aide de objdump :
+objdump -t /opt/phoenix/amd64/stack-three | grep complete_level
 
+Lors des tests, l’utilisation de caractères dont la valeur ASCII est supérieure à 0x7f posait problème, car l’encodage UTF‑8 ajoute automatiquement un octet supplémentaire 0xc2. 
+Il se trouve que ce caractère était situé à la fin donc on a pu juste enlever un A en passant de "A"*64 à "A"*63.
+
+La solution consiste à fournir une entrée suffisamment longue pour atteindre le pointeur de fonction et y écrire l’adresse de complete_level() :
 python3 -c 'print("A"*63 + "\x9d\x06\x40")' | ./stack-three
 
-**format-zero**
+La faiblesse provient de l’utilisation de gets(), qui permet un dépassement de tampon sur la pile.
 
-python3 -c 'print("%33x")' |./format-zero
+Pour corriger ce problème, il faut remplacer gets() par une fonction limitant la taille de l’entrée, comme fgets()
+
+CWE-121 :  A stack-based buffer overflow condition is a condition where the buffer being overwritten is allocated on the stack (i.e., is a local variable or, rarely, a parameter to a function).
+
+
+**format-zero**
+Le programme lit une entrée utilisateur et l’utilise directement comme chaîne de format dans la fonction sprintf.
+
+Dans ce cas, la chaîne fournie par l’utilisateur est interprétée comme une chaîne de format. Cela permet d’influencer le comportement de sprintf, notamment en écrivant au-delà du buffer dest.
+
+La solution consiste à fournir une chaîne de format qui force l’écriture de plus de 32 caractères :
+python3 -c 'print("%33x")' | ./format-zero
+
+La faiblesse provient de l’utilisation de sprintf() avec une chaîne de format contrôlée par l’utilisateur.
+
+Pour corriger ce problème, il faut utiliser une fonction limitant la taille de l’écriture comme snprintf().
+
+CWE-134 : The product uses a function that accepts a format string as an argument, but the format string originates from an external source.
 
 **format-one**
 
-python3 -c 'print("%31x"+","+"lOvE")' |./format-one
-pas plus que 15 caractères donc pas de \x... etc on repart sur codage asci
+Le programme utilise une entrée utilisateur comme chaîne de format dans la fonction sprintf.
+
+L’objectif est de modifier changeme avec la valeur 0x45764f6c.
+La taille de l’entrée étant limitée à 15 caractères, il n’est pas possible d’utiliser directement des octets hexadécimaux. La valeur cible est donc reconstruite à l’aide de caractères ASCII.
+
+La solution consiste donc à produire exactement 32 caractères, suivis de la chaîne correspondant à la valeur cible :
+python3 -c 'print("%31x" + "," + "lOvE")' | ./format-one
+
+La faiblesse provient de l’utilisation de sprintf() avec une chaîne de format contrôlée par l’utilisateur.
+
+Pour corriger ce problème, il faut utiliser une fonction sécurisée comme snprintf().
+
+CWE-134 : The product uses a function that accepts a format string as an argument, but the format string originates from an external source.
+
 
 **heap-zero**
 
