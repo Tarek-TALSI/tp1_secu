@@ -1,6 +1,7 @@
 # tp1_secu
 
 **Level00**
+
 Nous devons donc traquer un programme en Set User ID. Pour cela, nous utilisons la commande find suivante :
 level00@nebula:/bin/...$ find / -user flag00 2>/dev/null 
 
@@ -104,6 +105,7 @@ CWE-59 : The product attempts to access a file based on the filename, but it doe
 
 
 **Level05**
+
 En inspectant le répertoire personnel de flag05, on remarque la présence d’un répertoire caché .backup :
 level05@nebula:/home/flag05$ ls -a
 .  ..  .backup  .bash_logout  .bashrc  .profile  .ssh
@@ -130,6 +132,7 @@ CWE-276 : During installation, installed file permissions are set to allow anyon
 # tp2_secu
 
 **stack-zero**
+
 Le programme lit une entrée utilisateur à l’aide de la fonction gets() dans un buffer de taille fixe situé sur la pile .
 La fonction gets() ne vérifie pas la taille de l’entrée fournie. Il est donc possible d’écrire au-delà des 64 octets du buffer et d’écraser la variable changeme placée juste après sur la pile.
 
