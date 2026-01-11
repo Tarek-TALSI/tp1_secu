@@ -13,6 +13,8 @@ Le programme change le UID effectif et permet d'exécuter un programme pour lequ
 
 La faiblesse est la présence d'un programme SUID non protégé.
 
+Pour corriger ce problème, il faut retirer le bit SUID sur ce programme si ce n’est pas nécessaire, ou restreindre son accès uniquement aux utilisateurs légitimes, afin d’éviter qu’un utilisateur non autorisé puisse l’exécuter avec des privilèges élevés.
+
 CWE250:
 The product performs an operation at a privilege level that is higher than the minimum level required, which creates new weaknesses or amplifies the consequences of other weaknesses.
 
@@ -37,6 +39,8 @@ level01@nebula:/tmp$ export PATH=/tmp:$PATH on rajoute tmp dans le path pour que
 
 La faiblesse est la fonction system() qui n'est pas indépendante du path et qui donc nous permet de lui faire exectuer ce qu'on veut
 
+Pour corriger cette vulnérabilité, il faut éviter toute dépendance à la variable d’environnement PATH lors de l’appel à une commande système. on peut soit renseigner un cchamin absolu ou bien tout simplement ne paas utiliser system() et passer par execv par exemple.
+
 CWE-426:
 The product searches for critical resources using an externally-supplied search path that can point to resources that are not under the product's direct control.
 
@@ -53,41 +57,75 @@ Ce qui récupère notre flag car le programme appartient à flag02.
 
 La faiblesse ici est encore due à l'injection de paramètre dans  la fonction system() mais cette fois via une variable d'environnement.
 
+Une solution serait la même que level 01 et aussi de valider et filtrer strictement le contenu de la variable d'environnement USER. On ne peut pas faire confiance à des données issues de l'environnement utilisateur.
+
 CWE-77:
 The product constructs all or part of a command using externally-influenced input from an upstream component, but it does not neutralize or incorrectly neutralizes special elements that could modify the intended command when it is sent to a downstream component.
 
 **Level03**
 
-drwxrwxrwx 2 flag03 flag03  3 2012-08-18 05:24 writable.d
-Le cron appartient à flag03 donc tout ce qui est executé par lui à les droits de flag03.
+En examinant le répertoire personnel de flag03, on remarque la présence du dossier
 
-on crée le fichier malveillant: echo "/bin/getflag" > malveillance_max.sh
-il faut rediriger la sortie pour être sur que la sortie soit pas envoyé par mail ou quoi.
+drwxrwxrwx 2 flag03 flag03  3 2012-08-18 05:24 writable.d
+(Le cron appartient à flag03 donc tout ce qui est executé par lui à les droits de flag03.)
+Ce répertoire est accessible en lecture et écriture par tous les utilisateurs.
+Un script cron appartenant à l’utilisateur flag03 est exécuté périodiquement, ce qui signifie que tout fichier exécuté par ce cron s’exécute avec les droits de flag03.
+
+Il est alors possible de placer un script dans ce répertoire afin qu’il soit exécuté automatiquement par le cron.
+Un script malveillant est créé pour exécuter getflag, avec une redirection de la sortie afin d’éviter l’envoi par mail :
 level03@nebula:/home/flag03/writable.d$ echo -e '#!/bin/bash\n/bin/getflag > /tmp/flag03.txt 2>&1' > malveillance_max.sh
 
+La faiblesse provient de l’utilisation d’un répertoire world-writable pour l’exécution automatique de scripts via cron, permettant à un utilisateur non autorisé d’exécuter du code avec les privilèges de flag03.
+
+Pour corriger cette vulnérabilité, il faut supprimer les permissions en écriture pour les autres utilisateurs sur le répertoire utilisé par la tâche cron.
+Le répertoire ne doit être accessible qu’en lecture et écriture par l’utilisateur flag03.
+
 **Level04**
-/home/flag04$ ln -s /home/flag04/token /tmp/lien_pas_suspect crée le faux lien ne contenant pas le mot token
-06508b5e-8909-4f38-b630-fdb148a848a2 est le token de flag04
-en se connectant sur flag04 on peut alors rensigner le mdp
+
+Le programme permet de lire le contenu d’un fichier passé en argument, mais tente d’empêcher l’accès au fichier sensible token.
+
+Cette protection repose uniquement sur une vérification de chaîne de caractères dans le chemin fourni par l’utilisateur, et non sur le fichier réellement ouvert.
+Nous créons donc un lien symbolique pointant vers le fichier interdit, mais dont le nom ne contient pas le mot token :
+/home/flag04$ ln -s /home/flag04/token /tmp/lien_pas_suspect 
+Le programme n’interdit pas ce chemin, car la chaîne "token" n’apparaît pas dans l’argument fourni.
+Cependant, lors de l’appel à open(), le lien symbolique est résolu et le fichier réel /home/flag04/token est bien ouvert.
+
+Le contenu du fichier est alors affiché :
+06508b5e-8909-4f38-b630-fdb148a848a2
+
+Ce token permet ensuite de se connecter en tant que flag04:
 sh-4.2$ id uid=995(flag04) gid=995(flag04) groups=995(flag04) on est bien flag04 et donc on peut executer getflag
 
+Le programme applique un filtrage naïf basé sur le nom du fichier, sans vérifier le fichier réel ouvert après résolution des liens symboliques.
+
+Une solution serait de supprimer les liens symboliques avec le flag 0_NOFOLLOW lors de l'ouverture du fichier.
+
+CWE-59 : The product attempts to access a file based on the filename, but it does not properly prevent that filename from identifying a link or shortcut that resolves to an unintended resource.
+
+
 **Level05**
-Un fichier caché backup est présent:
+En inspectant le répertoire personnel de flag05, on remarque la présence d’un répertoire caché .backup :
 level05@nebula:/home/flag05$ ls -a
 .  ..  .backup  .bash_logout  .bashrc  .profile  .ssh
-Il y'a une archive dedans
+
+Ce répertoire est accessible alors qu’il contient une archive :
 level05@nebula:/home/flag05/.backup$ ls
 backup-19072011.tgz
-qui contient plusieurs fichier dont le plus important 
-id_rsa dans .ssh qui permet de se connecter en ssh
+
+L’archive contient plusieurs fichiers sensibles, dont le plus critique est une clé privée SSH id_rsa située dans .ssh.
+ette clé permet de se connecter directement en SSH sur le compte flag05 :
 level05@nebula:/tmp$ ssh -i /tmp/.ssh/id_rsa flag05@localhost
 
-et donc avoir le bon id pour effectuer getflag
-flag05@nebula:/home$ id
+Une fois connecté, on vérifie l’identité :
 uid=994(flag05) gid=994(flag05) groups=994(flag05)
-flag05@nebula:/home$ getflag
-You have successfully executed getflag on a target account
 
+On peut alors exécuter getflag.
+
+La faiblesse est le fait que le répertoire .backup est lisibles par un utilisateur non autorisé.
+
+Une solution serait de bien restreindre les permissions du répertoire .backup et par accéssoire ne pas stocker des clés ssh dans des archives accessibles.
+
+CWE-276 : During installation, installed file permissions are set to allow anyone to modify those files.
 
 # tp2_secu
 
